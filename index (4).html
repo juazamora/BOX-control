@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="BoxControl" />
+<meta name="theme-color" content="#0a0a0a" />
+<title>BoxControl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<script>
+  const MANIFEST = {
+    name: "BoxControl",
+    short_name: "BoxControl",
+    start_url: ".",
+    display: "standalone",
+    background_color: "#0a0a0a",
+    theme_color: "#0a0a0a",
+    icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%23e63946'/><text x='50%' y='55%' font-size='100' text-anchor='middle' dominant-baseline='middle' fill='white'>B</text></svg>", sizes: "192x192", type: "image/svg+xml" }]
+  };
+  const blob = new Blob([JSON.stringify(MANIFEST)], { type: "application/json" });
+  const manifestURL = URL.createObjectURL(blob);
+  const link = document.createElement("link");
+  link.rel = "manifest"; link.href = manifestURL;
+  document.head.appendChild(link);
+
+  if ("serviceWorker" in navigator) {
+    const swCode = `
+      const CACHE = "boxcontrol-v1";
+      self.addEventListener("install", e => { self.skipWaiting(); });
+      self.addEventListener("fetch", e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
+    `;
+    const swBlob = new Blob([swCode], { type: "application/javascript" });
+    navigator.serviceWorker.register(URL.createObjectURL(swBlob));
+  }
+</script>
+
+<style>
+  :root {
+    --red: #e63946;
+    --red-dark: #c1121f;
+    --gold: #f4a261;
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1e1e1e;
+    --surface3: #2a2a2a;
+    --border: #2e2e2e;
+    --text: #f5f5f5;
+    --text2: #999;
+    --text3: #666;
+    --green: #2a9d5c;
+    --blue: #2176ae;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --nav-height: 64px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%; width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #app {
+    display: flex; flex-direction: column;
+    height: 100%; width: 100%;
+    padding-top: var(--safe-top);
+  }
+
+  /* HEADER */
+  .app-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .app-header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px; letter-spacing: 2px;
+    color: var(--text);
+  }
+  .app-header h1 span { color: var(--red); }
+  .header-badge {
+    background: var(--red);
+    color: white;
+    font-size: 11px; font-weight: 600;
+    padding: 3px 10px; border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  /* CONTENT AREA */
+  .content-area {
+    flex: 1; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px);
+  }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding-bottom: var(--safe-bottom);
+    z-index: 100;
+    height: calc(var(--nav-height) + var(--safe-bottom));
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; padding: 10px 0; cursor: pointer;
+    color: var(--text3); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.5px; text-transform: uppercase;
+    transition: color 0.2s;
+    background: none; border: none; outline: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-item.active { color: var(--red); }
+  .nav-item svg { width: 22px; height: 22px; }
+  .nav-item span { font-size: 10px; }
+
+  /* VIEWS */
+  .view { display: none; padding: 16px; }
+  .view.active { display: block; }
+
+  /* SECTION HEADER */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 2px;
+    color: var(--text);
+  }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 12px 20px; border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; border: none; outline: none;
+    transition: all 0.15s; active-transform: scale(0.97);
+    min-height: 44px;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn-primary { background: var(--red); color: white; }
+  .btn-secondary { background: var(--surface3); color: var(--text); }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-danger { background: rgba(230,57,70,0.15); color: var(--red); border: 1px solid rgba(230,57,70,0.3); }
+  .btn-sm { padding: 8px 14px; font-size: 12px; min-height: 36px; }
+  .btn-icon { padding: 10px; min-height: 44px; min-width: 44px; border-radius: 10px; }
+  .btn-full { width: 100%; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .card-name { font-size: 17px; font-weight: 600; color: var(--text); }
+  .card-phone { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+  /* BADGES */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .badge-green { background: rgba(42,157,92,0.15); color: #4caf83; border: 1px solid rgba(42,157,92,0.3); }
+  .badge-red { background: rgba(230,57,70,0.15); color: var(--red); border: 1px solid rgba(230,57,70,0.3); }
+  .badge-blue { background: rgba(33,118,174,0.15); color: #5ba3d0; border: 1px solid rgba(33,118,174,0.3); }
+  .badge-gray { background: rgba(150,150,150,0.15); color: var(--text2); border: 1px solid var(--border); }
+  .badge-gold { background: rgba(244,162,97,0.15); color: var(--gold); border: 1px solid rgba(244,162,97,0.3); }
+
+  /* STATS ROW */
+  .stats-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .stat-item {
+    flex: 1; background: var(--surface2);
+    border-radius: 10px; padding: 10px 8px; text-align: center;
+  }
+  .stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--text); line-height: 1; }
+  .stat-label { font-size: 10px; color: var(--text2); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value.red { color: var(--red); }
+  .stat-value.green { color: #4caf83; }
+  .stat-value.gold { color: var(--gold); }
+
+  /* PROGRESS BAR */
+  .progress-wrap { margin: 8px 0; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 5px; }
+  .progress-bar { height: 6px; background: var(--surface3); border-radius: 10px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 10px; transition: width 0.4s; background: var(--green); }
+  .progress-fill.warn { background: var(--gold); }
+  .progress-fill.danger { background: var(--red); }
+
+  /* FORMS */
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-input, .form-select {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 13px 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 15px;
+    color: var(--text); outline: none;
+    -webkit-appearance: none; appearance: none;
+    transition: border-color 0.2s;
+    min-height: 48px;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--red); }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+  .form-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.8);
+    align-items: flex-end; justify-content: center;
+    padding: 0;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px calc(20px + var(--safe-bottom));
+    width: 100%; max-width: 600px;
+    max-height: 90vh; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle {
+    width: 40px; height: 4px; background: var(--border);
+    border-radius: 4px; margin: 0 auto 16px;
+  }
+  .modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 2px;
+    margin-bottom: 16px; color: var(--text);
+  }
+  .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .modal-actions .btn { flex: 1; }
+
+  /* CONFIRM MODAL */
+  .confirm-overlay {
+    display: none; position: fixed; inset: 0; z-index: 2000;
+    background: rgba(0,0,0,0.85);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .confirm-overlay.open { display: flex; }
+  .confirm-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px; padding: 24px;
+    width: 100%; max-width: 340px;
+    text-align: center;
+    animation: fadeScale 0.2s ease;
+  }
+  @keyframes fadeScale { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .confirm-icon { font-size: 40px; margin-bottom: 12px; }
+  .confirm-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .confirm-msg { font-size: 14px; color: var(--text2); margin-bottom: 20px; }
+  .confirm-actions { display: flex; gap: 10px; }
+  .confirm-actions .btn { flex: 1; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; top: calc(20px + var(--safe-top)); left: 50%; transform: translateX(-50%);
+    background: var(--surface3); color: var(--text);
+    padding: 12px 20px; border-radius: 40px;
+    font-size: 14px; font-weight: 500;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    z-index: 9999; opacity: 0; transition: opacity 0.3s;
+    white-space: nowrap; pointer-events: none;
+    border: 1px solid var(--border);
+  }
+  .toast.show { opacity: 1; }
+
+  /* AGENDA ITEMS */
+  .agenda-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .agenda-time-block {
+    text-align: center; min-width: 52px;
+    background: var(--surface2); border-radius: 8px; padding: 6px;
+  }
+  .agenda-time { font-family: 'Bebas Neue', sans-serif; font-size: 20px; line-height: 1; }
+  .agenda-ampm { font-size: 10px; color: var(--text3); text-transform: uppercase; }
+  .agenda-info { flex: 1; min-width: 0; }
+  .agenda-name { font-size: 15px; font-weight: 600; }
+  .agenda-date { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .agenda-actions { display: flex; gap: 6px; }
+
+  /* CALENDAR */
+  .cal-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .cal-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; }
+  .cal-views { display: flex; gap: 6px; margin-bottom: 16px; }
+  .cal-views .btn { flex: 1; font-size: 13px; padding: 10px; }
+
+  /* WEEK VIEW */
+  .week-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px; }
+  .week-grid { display: grid; grid-template-columns: 52px repeat(7, minmax(90px, 1fr)); min-width: 690px; }
+  .week-header { background: var(--surface2); padding: 8px 4px; text-align: center; font-size: 11px; color: var(--text2); border-bottom: 1px solid var(--border); }
+  .week-header.today { color: var(--red); font-weight: 700; }
+  .week-header .day-num { font-family: 'Bebas Neue', sans-serif; font-size: 20px; line-height: 1.1; }
+  .week-time-label { padding: 4px 6px; font-size: 10px; color: var(--text3); text-align: right; border-right: 1px solid var(--border); align-self: center; }
+  .week-cell { min-height: 32px; border-bottom: 1px solid rgba(255,255,255,0.03); border-right: 1px solid rgba(255,255,255,0.03); position: relative; cursor: pointer; }
+  .week-cell.today-col { background: rgba(230,57,70,0.03); }
+  .week-event {
+    margin: 2px; border-radius: 6px; padding: 3px 6px;
+    font-size: 11px; font-weight: 500; line-height: 1.3;
+    cursor: pointer;
+  }
+  .week-event.confirmada { background: rgba(42,157,92,0.25); color: #4caf83; border-left: 3px solid var(--green); }
+  .week-event.reservada { background: rgba(33,118,174,0.25); color: #5ba3d0; border-left: 3px solid var(--blue); }
+  .week-event.cancelada { background: rgba(150,150,150,0.15); color: var(--text3); border-left: 3px solid var(--text3); }
+
+  /* MONTH VIEW */
+  .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .month-day-header { text-align: center; font-size: 10px; color: var(--text3); padding: 4px; font-weight: 600; text-transform: uppercase; }
+  .month-cell {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px; min-height: 64px;
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .month-cell:active { border-color: var(--red); }
+  .month-cell.today { border-color: var(--red); }
+  .month-cell.other-month { opacity: 0.35; }
+  .month-cell.selected { border-color: var(--gold); background: rgba(244,162,97,0.07); }
+  .month-day-num { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .month-cell.today .month-day-num { color: var(--red); }
+  .month-dot-row { display: flex; flex-wrap: wrap; gap: 2px; }
+  .month-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .month-dot.confirmada { background: var(--green); }
+  .month-dot.reservada { background: var(--blue); }
+  .month-dot.cancelada { background: var(--text3); }
+  .month-count { font-size: 10px; color: var(--text2); margin-top: 3px; }
+
+  /* DAY DETAIL */
+  .day-detail { background: var(--surface2); border-radius: 14px; padding: 14px; margin-top: 14px; }
+  .day-detail-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px; margin-bottom: 10px; color: var(--gold); }
+
+  /* SUMMARY VIEW */
+  .summary-card {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; margin-bottom: 10px;
+  }
+  .summary-big { font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--red); line-height: 1; }
+
+  /* EMPTY STATE */
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text2); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-text { font-size: 15px; }
+  .empty-sub { font-size: 13px; color: var(--text3); margin-top: 6px; }
+
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+  /* PAST INDICATOR */
+  .past-tag { display: inline-block; font-size: 10px; color: var(--red); background: rgba(230,57,70,0.1); border: 1px solid rgba(230,57,70,0.2); border-radius: 4px; padding: 1px 6px; margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="app-header">
+    <h1>BOX<span>CONTROL</span></h1>
+    <span class="header-badge">PRO</span>
+  </header>
+
+  <div class="content-area">
+
+    <!-- VIEW: CLIENTES -->
+    <div id="view-clientes" class="view active">
+      <div class="section-header">
+        <span class="section-title">Clientes</span>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-cliente')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nuevo
+        </button>
+      </div>
+      <div id="resumen-global" style="margin-bottom:14px;"></div>
+      <div id="lista-clientes"></div>
+    </div>
+
+    <!-- VIEW: AGENDA -->
+    <div id="view-agenda" class="view">
+      <div class="section-header">
+        <span class="section-title">Agenda</span>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-reserva')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Reservar
+        </button>
+      </div>
+      <div id="lista-agenda"></div>
+    </div>
+
+    <!-- VIEW: CALENDARIO -->
+    <div id="view-calendario" class="view">
+      <div class="cal-nav">
+        <button class="btn btn-icon btn-secondary" id="btn-cal-prev">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="cal-title" id="cal-title">Abril 2026</span>
+        <button class="btn btn-icon btn-secondary" id="btn-cal-next">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+      <div class="cal-views">
+        <button class="btn btn-primary btn-sm" id="btn-vista-semana" onclick="setCalView('semana')">Semana</button>
+        <button class="btn btn-secondary btn-sm" id="btn-vista-mes" onclick="setCalView('mes')">Mes</button>
+        <button class="btn btn-ghost btn-sm" onclick="goToday()">Hoy</button>
+      </div>
+      <div id="cal-content"></div>
+      <div id="day-detail-panel"></div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-clientes" onclick="switchView('clientes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span>Clientes</span>
+    </button>
+    <button class="nav-item" id="nav-agenda" onclick="switchView('agenda')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span>Agenda</span>
+    </button>
+    <button class="nav-item" id="nav-calendario" onclick="switchView('calendario')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9M15 21V9"/></svg>
+      <span>Calendario</span>
+    </button>
+  </nav>
+</div>
+
+<!-- MODAL: NUEVO CLIENTE -->
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-handle" onclick="closeModal('modal-cliente')"></div>
+    <div class="modal-title" id="modal-cliente-title">Nuevo Cliente</div>
+    <input type="hidden" id="edit-cliente-id" value="" />
+    <div class="form-group">
+      <label class="form-label">Nombre completo</label>
+      <input type="text" class="form-input" id="inp-nombre" placeholder="Ej: Juan Perez" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Telefono</label>
+      <input type="tel" class="form-input" id="inp-telefono" placeholder="Ej: 8888-8888" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Clases pagadas</label>
+        <input type="number" class="form-input" id="inp-clases" placeholder="4" min="1" oninput="calcMonto()" />
+        <div class="form-hint">25,000 por clase</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monto (CRC)</label>
+        <input type="number" class="form-input" id="inp-monto" placeholder="100000" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha de pago</label>
+        <input type="date" class="form-input" id="inp-fecha-pago" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Proximo pago</label>
+        <input type="date" class="form-input" id="inp-prox-pago" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas</label>
+      <input type="text" class="form-input" id="inp-notas" placeholder="Opcional" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-cliente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarCliente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVA RESERVA -->
+<div class="modal-overlay" id="modal-reserva">
+  <div class="modal">
+    <div class="modal-handle" onclick="closeModal('modal-reserva')"></div>
+    <div class="modal-title">Nueva Reserva</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha</label>
+        <input type="date" class="form-input" id="inp-res-fecha" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hora</label>
+        <select class="form-select" id="inp-res-hora"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cliente</label>
+      <select class="form-select" id="inp-res-cliente">
+        <option value="">-- Seleccionar --</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Estado</label>
+      <select class="form-select" id="inp-res-estado">
+        <option value="Reservada">Reservada</option>
+        <option value="Confirmada">Confirmada</option>
+        <option value="Cancelada">Cancelada</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas</label>
+      <input type="text" class="form-input" id="inp-res-notas" placeholder="Opcional" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-reserva')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarReserva()">Reservar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DETALLE DIA (semana) -->
+<div class="modal-overlay" id="modal-detalle">
+  <div class="modal">
+    <div class="modal-handle" onclick="closeModal('modal-detalle')"></div>
+    <div class="modal-title" id="modal-detalle-title">Detalle</div>
+    <div id="modal-detalle-content"></div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn btn-secondary btn-full" onclick="closeModal('modal-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">?</div>
+    <div class="confirm-title" id="confirm-title">Confirmar</div>
+    <div class="confirm-msg" id="confirm-msg">Esta accion no se puede deshacer.</div>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" id="btn-confirm-no">No</button>
+      <button class="btn btn-danger" id="btn-confirm-yes">Si, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================== STATE =====================
+let clientes = JSON.parse(localStorage.getItem('bc_clientes') || '[]');
+let reservas = JSON.parse(localStorage.getItem('bc_reservas') || '[]');
+let currentView = 'clientes';
+let calView = 'semana';
+let calDate = new Date();
+let selectedDay = null;
+
+// ===================== STORAGE =====================
+function save() {
+  localStorage.setItem('bc_clientes', JSON.stringify(clientes));
+  localStorage.setItem('bc_reservas', JSON.stringify(reservas));
+}
+
+// ===================== UTILS =====================
+function today() {
+  const d = new Date();
+  return d.toISOString().split('T')[0];
+}
+
+function formatDate(str) {
+  if (!str) return '';
+  const [y, m, d] = str.split('-');
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return `${d} ${months[parseInt(m)-1]} ${y}`;
+}
+
+function formatTime(t) {
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return { display: `${String(h12).padStart(2,'0')}:${String(m).padStart(2,'0')}`, ampm };
+}
+
+function toastMsg(msg, type = 'default') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = type === 'success' ? '#1a3a2a' : type === 'error' ? '#3a1a1a' : 'var(--surface3)';
+  el.style.color = type === 'success' ? '#4caf83' : type === 'error' ? 'var(--red)' : 'var(--text)';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function confirmDialog(title, msg, onYes) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  const overlay = document.getElementById('confirm-overlay');
+  overlay.classList.add('open');
+  document.getElementById('btn-confirm-yes').onclick = () => { overlay.classList.remove('open'); onYes(); };
+  document.getElementById('btn-confirm-no').onclick = () => overlay.classList.remove('open');
+}
+
+function clasesUsadas(clienteId) {
+  const hoy = today();
+  return reservas.filter(r =>
+    r.clienteId === clienteId &&
+    r.fecha < hoy &&
+    r.estado !== 'Cancelada'
+  ).length;
+}
+
+function clasesDisponibles(cliente) {
+  return Math.max(0, cliente.clasesPagadas - clasesUsadas(cliente.id));
+}
+
+// ===================== MODALS =====================
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ===================== VIEWS =====================
+function switchView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  document.getElementById('nav-' + v).classList.add('active');
+  currentView = v;
+  if (v === 'clientes') renderClientes();
+  if (v === 'agenda') renderAgenda();
+  if (v === 'calendario') renderCalendario();
+}
+
+// ===================== CLIENTES =====================
+function calcMonto() {
+  const c = parseInt(document.getElementById('inp-clases').value) || 0;
+  document.getElementById('inp-monto').value = c * 25000;
+}
+
+function openNuevoCliente() {
+  document.getElementById('modal-cliente-title').textContent = 'Nuevo Cliente';
+  document.getElementById('edit-cliente-id').value = '';
+  document.getElementById('inp-nombre').value = '';
+  document.getElementById('inp-telefono').value = '';
+  document.getElementById('inp-clases').value = '4';
+  document.getElementById('inp-monto').value = '100000';
+  document.getElementById('inp-fecha-pago').value = today();
+  document.getElementById('inp-prox-pago').value = '';
+  document.getElementById('inp-notas').value = '';
+  openModal('modal-cliente');
+}
+
+function editCliente(id) {
+  const c = clientes.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('modal-cliente-title').textContent = 'Editar Cliente';
+  document.getElementById('edit-cliente-id').value = id;
+  document.getElementById('inp-nombre').value = c.nombre;
+  document.getElementById('inp-telefono').value = c.telefono || '';
+  document.getElementById('inp-clases').value = c.clasesPagadas;
+  document.getElementById('inp-monto').value = c.monto || c.clasesPagadas * 25000;
+  document.getElementById('inp-fecha-pago').value = c.fechaPago || '';
+  document.getElementById('inp-prox-pago').value = c.proxPago || '';
+  document.getElementById('inp-notas').value = c.notas || '';
+  openModal('modal-cliente');
+}
+
+function guardarCliente() {
+  const nombre = document.getElementById('inp-nombre').value.trim();
+  const clases = parseInt(document.getElementById('inp-clases').value);
+  if (!nombre || !clases) { toastMsg('Nombre y clases son requeridos', 'error'); return; }
+  const editId = document.getElementById('edit-cliente-id').value;
+  const data = {
+    nombre,
+    telefono: document.getElementById('inp-telefono').value.trim(),
+    clasesPagadas: clases,
+    monto: parseInt(document.getElementById('inp-monto').value) || clases * 25000,
+    fechaPago: document.getElementById('inp-fecha-pago').value,
+    proxPago: document.getElementById('inp-prox-pago').value,
+    notas: document.getElementById('inp-notas').value.trim()
+  };
+  if (editId) {
+    const idx = clientes.findIndex(x => x.id === editId);
+    clientes[idx] = { ...clientes[idx], ...data };
+    toastMsg('Cliente actualizado', 'success');
+  } else {
+    data.id = 'c' + Date.now();
+    clientes.push(data);
+    toastMsg('Cliente registrado', 'success');
+  }
+  save();
+  closeModal('modal-cliente');
+  renderClientes();
+  refreshClienteSelect();
+}
+
+function eliminarCliente(id) {
+  const c = clientes.find(x => x.id === id);
+  confirmDialog('Eliminar cliente', `Se eliminara a "${c.nombre}" y sus reservas asociadas.`, () => {
+    clientes = clientes.filter(x => x.id !== id);
+    reservas = reservas.filter(r => r.clienteId !== id);
+    save(); renderClientes(); toastMsg('Cliente eliminado');
+  });
+}
+
+function renderClientes() {
+  // Resumen global
+  const total = clientes.length;
+  const hoy = today();
+  const alertas = clientes.filter(c => {
+    const disp = clasesDisponibles(c);
+    const venc = c.proxPago && c.proxPago < hoy;
+    return disp <= 0 || venc;
+  }).length;
+  const totalIngresos = clientes.reduce((s, c) => s + (c.monto || 0), 0);
+  document.getElementById('resumen-global').innerHTML = `
+    <div class="stats-row">
+      <div class="stat-item"><div class="stat-value">${total}</div><div class="stat-label">Clientes</div></div>
+      <div class="stat-item"><div class="stat-value red">${alertas}</div><div class="stat-label">Alertas</div></div>
+      <div class="stat-item"><div class="stat-value gold" style="font-size:18px;">${(totalIngresos/1000).toFixed(0)}K</div><div class="stat-label">Ingresos</div></div>
+    </div>`;
+
+  const cont = document.getElementById('lista-clientes');
+  if (!clientes.length) {
+    cont.innerHTML = `<div class="empty-state"><div class="empty-icon">--</div><div class="empty-text">Sin clientes registrados</div><div class="empty-sub">Agrega tu primer cliente</div></div>`;
+    return;
+  }
+
+  cont.innerHTML = clientes.map(c => {
+    const usadas = clasesUsadas(c.id);
+    const disponibles = Math.max(0, c.clasesPagadas - usadas);
+    const pct = c.clasesPagadas > 0 ? Math.round((disponibles / c.clasesPagadas) * 100) : 0;
+    const fillClass = pct <= 25 ? 'danger' : pct <= 50 ? 'warn' : '';
+    const vencido = c.proxPago && c.proxPago < today();
+    const proxHoy = c.proxPago && c.proxPago === today();
+    let estadoBadge = '';
+    if (disponibles <= 0) estadoBadge = `<span class="badge badge-red">Sin clases</span>`;
+    else if (vencido) estadoBadge = `<span class="badge badge-red">Pago vencido</span>`;
+    else if (proxHoy) estadoBadge = `<span class="badge badge-gold">Paga hoy</span>`;
+    else estadoBadge = `<span class="badge badge-green">Activo</span>`;
+
+    return `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-name">${c.nombre}</div>
+          ${c.telefono ? `<div class="card-phone">${c.telefono}</div>` : ''}
+        </div>
+        ${estadoBadge}
+      </div>
+      <div class="stats-row">
+        <div class="stat-item"><div class="stat-value ${disponibles <= 1 ? 'red' : 'green'}">${disponibles}</div><div class="stat-label">Disponibles</div></div>
+        <div class="stat-item"><div class="stat-value">${c.clasesPagadas}</div><div class="stat-label">Pagadas</div></div>
+        <div class="stat-item"><div class="stat-value">${usadas}</div><div class="stat-label">Usadas</div></div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label"><span>Clases restantes</span><span>${pct}%</span></div>
+        <div class="progress-bar"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>
+      </div>
+      <div class="divider"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+        <div>
+          <div style="font-size:11px;color:var(--text3);">Monto pagado</div>
+          <div style="font-size:15px;font-weight:700;color:var(--gold);">CRC ${(c.monto||0).toLocaleString()}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--text3);">Proximo pago</div>
+          <div style="font-size:13px;font-weight:600;color:${vencido?'var(--red)':'var(--text2)'};">${c.proxPago ? formatDate(c.proxPago) : 'No definido'}</div>
+        </div>
+      </div>
+      ${c.notas ? `<div style="margin-top:8px;font-size:12px;color:var(--text3);">${c.notas}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="editCliente('${c.id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+          Editar
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarCliente('${c.id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===================== AGENDA =====================
+function generateTimeSlots() {
+  const slots = [];
+  for (let h = 5; h <= 22; h++) {
+    slots.push(`${String(h).padStart(2,'0')}:00`);
+    if (h < 22) slots.push(`${String(h).padStart(2,'0')}:30`);
+  }
+  return slots;
+}
+
+function refreshClienteSelect() {
+  const sel = document.getElementById('inp-res-cliente');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>' +
+    clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+}
+
+function fillHoraSelect() {
+  const sel = document.getElementById('inp-res-hora');
+  if (!sel) return;
+  const slots = generateTimeSlots();
+  sel.innerHTML = slots.map(s => {
+    const { display, ampm } = formatTime(s);
+    return `<option value="${s}">${display} ${ampm}</option>`;
+  }).join('');
+}
+
+function guardarReserva() {
+  const fecha = document.getElementById('inp-res-fecha').value;
+  const hora = document.getElementById('inp-res-hora').value;
+  const clienteId = document.getElementById('inp-res-cliente').value;
+  const estado = document.getElementById('inp-res-estado').value;
+  if (!fecha || !hora || !clienteId) { toastMsg('Fecha, hora y cliente son requeridos', 'error'); return; }
+  const dup = reservas.find(r => r.fecha === fecha && r.hora === hora && r.estado !== 'Cancelada');
+  if (dup) { toastMsg('Ya hay una reserva activa en ese horario', 'error'); return; }
+  reservas.push({ id: 'r' + Date.now(), fecha, hora, clienteId, estado, notas: document.getElementById('inp-res-notas').value });
+  save(); closeModal('modal-reserva'); renderAgenda();
+  renderClientes(); toastMsg('Reserva guardada', 'success');
+}
+
+function eliminarReserva(id) {
+  const r = reservas.find(x => x.id === id);
+  const c = clientes.find(x => x.id === r.clienteId);
+  confirmDialog('Eliminar reserva', `Eliminar clase de "${c ? c.nombre : ''}" el ${formatDate(r.fecha)} a las ${r.hora}?`, () => {
+    reservas = reservas.filter(x => x.id !== id);
+    save(); renderAgenda(); renderClientes();
+    if (calView) renderCalendario();
+    toastMsg('Reserva eliminada');
+  });
+}
+
+function cambiarEstado(id, nuevoEstado) {
+  const idx = reservas.findIndex(x => x.id === id);
+  if (idx >= 0) { reservas[idx].estado = nuevoEstado; save(); renderAgenda(); renderClientes(); renderCalendario(); }
+}
+
+function renderAgenda() {
+  fillHoraSelect();
+  refreshClienteSelect();
+  const hoy = today();
+  const sorted = [...reservas].sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  const grouped = {};
+  sorted.forEach(r => { if (!grouped[r.fecha]) grouped[r.fecha] = []; grouped[r.fecha].push(r); });
+
+  const cont = document.getElementById('lista-agenda');
+  if (!sorted.length) {
+    cont.innerHTML = `<div class="empty-state"><div class="empty-icon">--</div><div class="empty-text">Sin reservas</div><div class="empty-sub">Agenda tu primera clase</div></div>`;
+    return;
+  }
+
+  cont.innerHTML = Object.keys(grouped).sort().map(fecha => {
+    const esPasado = fecha < hoy;
+    const esHoy = fecha === hoy;
+    const items = grouped[fecha];
+    const header = `<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px;">
+      <span style="font-size:13px;font-weight:700;color:${esHoy?'var(--gold)':esPasado?'var(--text3)':'var(--text)'};">${formatDate(fecha)}</span>
+      ${esHoy ? `<span class="badge badge-gold">Hoy</span>` : ''}
+      ${esPasado ? `<span class="badge badge-gray">Pasado</span>` : ''}
+      <span style="font-size:11px;color:var(--text3);">${items.length} clase${items.length>1?'s':''}</span>
+    </div>`;
+    const cards = items.map(r => {
+      const c = clientes.find(x => x.id === r.clienteId);
+      const { display, ampm } = formatTime(r.hora);
+      const isPast = r.fecha < hoy;
+      const descuenta = isPast && r.estado !== 'Cancelada';
+      const badgeClass = r.estado === 'Confirmada' ? 'badge-green' : r.estado === 'Reservada' ? 'badge-blue' : 'badge-gray';
+      return `
+      <div class="agenda-item" style="${isPast ? 'opacity:0.75;' : ''}">
+        <div class="agenda-time-block">
+          <div class="agenda-time">${display}</div>
+          <div class="agenda-ampm">${ampm}</div>
+        </div>
+        <div class="agenda-info">
+          <div class="agenda-name">${c ? c.nombre : 'Desconocido'}${descuenta ? `<span class="past-tag">descontada</span>` : ''}</div>
+          <div class="agenda-date">
+            <span class="badge ${badgeClass}">${r.estado}</span>
+            ${r.notas ? `<span style="font-size:11px;color:var(--text3);margin-left:6px;">${r.notas}</span>` : ''}
+          </div>
+        </div>
+        <div class="agenda-actions">
+          <button class="btn btn-icon btn-danger btn-sm" onclick="eliminarReserva('${r.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+    return header + cards;
+  }).join('');
+}
+
+// ===================== CALENDARIO =====================
+function setCalView(v) {
+  calView = v;
+  document.getElementById('btn-vista-semana').className = `btn btn-sm ${v==='semana'?'btn-primary':'btn-secondary'}`;
+  document.getElementById('btn-vista-mes').className = `btn btn-sm ${v==='mes'?'btn-primary':'btn-secondary'}`;
+  selectedDay = null;
+  document.getElementById('day-detail-panel').innerHTML = '';
+  renderCalendario();
+}
+
+function goToday() { calDate = new Date(); selectedDay = null; document.getElementById('day-detail-panel').innerHTML = ''; renderCalendario(); }
+
+function renderCalendario() {
+  if (calView === 'semana') renderSemana();
+  else renderMes();
+}
+
+function getWeekStart(d) {
+  const dt = new Date(d);
+  const day = dt.getDay();
+  const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(dt.setDate(diff));
+}
+
+function renderSemana() {
+  const ws = getWeekStart(calDate);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(ws); d.setDate(ws.getDate() + i); return d;
+  });
+  const todayStr = today();
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const firstDay = days[0]; const lastDay = days[6];
+  const titleStr = firstDay.getMonth() === lastDay.getMonth()
+    ? `${months[firstDay.getMonth()]} ${firstDay.getFullYear()}`
+    : `${months[firstDay.getMonth()]} - ${months[lastDay.getMonth()]} ${lastDay.getFullYear()}`;
+  document.getElementById('cal-title').textContent = titleStr;
+
+  document.getElementById('btn-cal-prev').onclick = () => { const d = new Date(calDate); d.setDate(d.getDate() - 7); calDate = d; renderCalendario(); };
+  document.getElementById('btn-cal-next').onclick = () => { const d = new Date(calDate); d.setDate(d.getDate() + 7); calDate = d; renderCalendario(); };
+
+  const slots = generateTimeSlots();
+  const dayNames = ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'];
+
+  let html = `<div class="week-scroll"><div class="week-grid">`;
+  html += `<div class="week-header"></div>`;
+  days.forEach((d, i) => {
+    const ds = d.toISOString().split('T')[0];
+    const isToday = ds === todayStr;
+    html += `<div class="week-header ${isToday ? 'today' : ''}"><div class="day-num">${d.getDate()}</div><div>${dayNames[i]}</div></div>`;
+  });
+
+  slots.forEach(slot => {
+    const { display } = formatTime(slot);
+    html += `<div class="week-time-label">${display}</div>`;
+    days.forEach(d => {
+      const ds = d.toISOString().split('T')[0];
+      const isToday = ds === todayStr;
+      const rs = reservas.filter(r => r.fecha === ds && r.hora === slot);
+      html += `<div class="week-cell ${isToday ? 'today-col' : ''}">`;
+      rs.forEach(r => {
+        const c = clientes.find(x => x.id === r.clienteId);
+        const est = r.estado.toLowerCase();
+        html += `<div class="week-event ${est}" onclick="showEventoDetalle('${r.id}')">${c ? c.nombre.split(' ')[0] : '?'}</div>`;
+      });
+      html += `</div>`;
+    });
+  });
+
+  html += `</div></div>`;
+  document.getElementById('cal-content').innerHTML = html;
+  document.getElementById('day-detail-panel').innerHTML = '';
+}
+
+function showEventoDetalle(rid) {
+  const r = reservas.find(x => x.id === rid);
+  if (!r) return;
+  const c = clientes.find(x => x.id === r.clienteId);
+  const isPast = r.fecha < today();
+  const descuenta = isPast && r.estado !== 'Cancelada';
+  const { display, ampm } = formatTime(r.hora);
+  const badgeClass = r.estado === 'Confirmada' ? 'badge-green' : r.estado === 'Reservada' ? 'badge-blue' : 'badge-gray';
+  document.getElementById('modal-detalle-title').textContent = `${display} ${ampm} - ${formatDate(r.fecha)}`;
+  document.getElementById('modal-detalle-content').innerHTML = `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:700;">${c ? c.nombre : 'Desconocido'}</div>
+      ${c ? `<div style="font-size:13px;color:var(--text2);">${c.telefono || ''}</div>` : ''}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <span class="badge ${badgeClass}">${r.estado}</span>
+      ${descuenta ? `<span class="badge badge-red">Clase descontada</span>` : ''}
+    </div>
+    ${r.notas ? `<div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${r.notas}</div>` : ''}
+    ${c ? `<div style="font-size:13px;color:var(--text3);">Clases disponibles: <strong style="color:var(--text)">${clasesDisponibles(c)}</strong></div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      ${r.estado !== 'Confirmada' ? `<button class="btn btn-sm" style="background:rgba(42,157,92,0.2);color:#4caf83;flex:1" onclick="cambiarEstado('${r.id}','Confirmada');closeModal('modal-detalle');">Confirmar</button>` : ''}
+      ${r.estado !== 'Cancelada' ? `<button class="btn btn-sm" style="background:rgba(150,150,150,0.15);color:var(--text2);flex:1" onclick="cambiarEstado('${r.id}','Cancelada');closeModal('modal-detalle');">Cancelar</button>` : ''}
+      <button class="btn btn-danger btn-sm" onclick="eliminarReserva('${r.id}');closeModal('modal-detalle');">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+      </button>
+    </div>`;
+  openModal('modal-detalle');
+}
+
+function renderMes() {
+  const year = calDate.getFullYear();
+  const month = calDate.getMonth();
+  const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('cal-title').textContent = `${months[month]} ${year}`;
+  document.getElementById('btn-cal-prev').onclick = () => { calDate = new Date(year, month - 1, 1); renderCalendario(); };
+  document.getElementById('btn-cal-next').onclick = () => { calDate = new Date(year, month + 1, 1); renderCalendario(); };
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const todayStr = today();
+  let startDow = firstDay.getDay(); if (startDow === 0) startDow = 7; startDow--;
+  const cells = [];
+  for (let i = 0; i < startDow; i++) {
+    const d = new Date(year, month, -startDow + i + 1);
+    cells.push({ date: d.toISOString().split('T')[0], other: true });
+  }
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const dt = new Date(year, month, d);
+    cells.push({ date: dt.toISOString().split('T')[0], other: false });
+  }
+  while (cells.length % 7 !== 0) {
+    const last = new Date(cells[cells.length-1].date);
+    last.setDate(last.getDate() + 1);
+    cells.push({ date: last.toISOString().split('T')[0], other: true });
+  }
+
+  const dayNames = ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'];
+  let html = `<div class="month-grid">`;
+  dayNames.forEach(dn => { html += `<div class="month-day-header">${dn}</div>`; });
+  cells.forEach(cell => {
+    const rs = reservas.filter(r => r.fecha === cell.date);
+    const isToday = cell.date === todayStr;
+    const isSel = cell.date === selectedDay;
+    const dayNum = parseInt(cell.date.split('-')[2]);
+    const dots = rs.slice(0, 4).map(r => `<div class="month-dot ${r.estado.toLowerCase()}"></div>`).join('');
+    html += `<div class="month-cell ${cell.other ? 'other-month' : ''} ${isToday ? 'today' : ''} ${isSel ? 'selected' : ''}" onclick="selectDay('${cell.date}')">
+      <div class="month-day-num">${dayNum}</div>
+      <div class="month-dot-row">${dots}</div>
+      ${rs.length > 0 ? `<div class="month-count">${rs.length}cl</div>` : ''}
+    </div>`;
+  });
+  html += `</div>`;
+  document.getElementById('cal-content').innerHTML = html;
+  if (selectedDay) renderDayDetail(selectedDay);
+}
+
+function selectDay(dateStr) {
+  selectedDay = dateStr;
+  renderMes();
+  renderDayDetail(dateStr);
+}
+
+function renderDayDetail(dateStr) {
+  const rs = reservas.filter(r => r.fecha === dateStr).sort((a,b) => a.hora.localeCompare(b.hora));
+  const panel = document.getElementById('day-detail-panel');
+  if (!rs.length) {
+    panel.innerHTML = `<div class="day-detail"><div class="day-detail-title">${formatDate(dateStr)}</div><div style="color:var(--text3);font-size:13px;">Sin clases programadas</div></div>`;
+    return;
+  }
+  const items = rs.map(r => {
+    const c = clientes.find(x => x.id === r.clienteId);
+    const { display, ampm } = formatTime(r.hora);
+    const isPast = r.fecha < today();
+    const descuenta = isPast && r.estado !== 'Cancelada';
+    const badgeClass = r.estado === 'Confirmada' ? 'badge-green' : r.estado === 'Reservada' ? 'badge-blue' : 'badge-gray';
+    return `<div class="agenda-item">
+      <div class="agenda-time-block"><div class="agenda-time">${display}</div><div class="agenda-ampm">${ampm}</div></div>
+      <div class="agenda-info">
+        <div class="agenda-name">${c ? c.nombre : '?'}${descuenta ? `<span class="past-tag">desc.</span>` : ''}</div>
+        <div><span class="badge ${badgeClass}">${r.estado}</span></div>
+      </div>
+      <div class="agenda-actions">
+        <button class="btn btn-icon btn-danger btn-sm" onclick="eliminarReserva('${r.id}');renderDayDetail('${dateStr}');">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+  panel.innerHTML = `<div class="day-detail"><div class="day-detail-title">${formatDate(dateStr)} - ${rs.length} clase${rs.length>1?'s':''}</div>${items}</div>`;
+}
+
+// ===================== INIT =====================
+document.addEventListener('DOMContentLoaded', () => {
+  // Override nuevo cliente button
+  document.querySelector('#view-clientes .btn-primary').onclick = openNuevoCliente;
+  // Nuevo modal - fill hora
+  document.getElementById('modal-reserva').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal('modal-reserva');
+  });
+  document.getElementById('modal-cliente').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal('modal-cliente');
+  });
+
+  fillHoraSelect();
+  refreshClienteSelect();
+  // Set default fecha
+  document.getElementById('inp-res-fecha').value = today();
+  document.getElementById('inp-fecha-pago').value = today();
+
+  renderClientes();
+  renderAgenda();
+});
+</script>
+</body>
+</html>
